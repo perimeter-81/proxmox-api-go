@@ -1,0 +1,6 @@
+kind: Improvments
+body: create_client_wrapper_to_proxmox
+time: 2023-01-15T09:29:36.612632+02:00
+custom:
+  JiraID: "21448"
+  PR: "1"

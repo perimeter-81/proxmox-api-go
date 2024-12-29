@@ -1,11 +1,14 @@
 package proxmox
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
+
+	"github.com/Telmate/proxmox-api-go/internal/util"
 )
 
 // matrix of storage types and which content types they support.
@@ -129,7 +132,7 @@ type ConfigStorageDirectory struct {
 
 func (directory *ConfigStorageDirectory) SetDefaults() {
 	if directory.Preallocation == nil {
-		directory.Preallocation = PointerString("metadata")
+		directory.Preallocation = util.Pointer("metadata")
 	}
 }
 
@@ -152,7 +155,7 @@ type ConfigStorageNFS struct {
 
 func (nfs *ConfigStorageNFS) SetDefaults() {
 	if nfs.Preallocation == nil {
-		nfs.Preallocation = PointerString("metadata")
+		nfs.Preallocation = util.Pointer("metadata")
 	}
 }
 
@@ -168,7 +171,7 @@ type ConfigStorageSMB struct {
 
 func (smb *ConfigStorageSMB) SetDefaults() {
 	if smb.Preallocation == nil {
-		smb.Preallocation = PointerString("metadata")
+		smb.Preallocation = util.Pointer("metadata")
 	}
 }
 
@@ -181,7 +184,7 @@ type ConfigStorageGlusterFS struct {
 
 func (glusterfs *ConfigStorageGlusterFS) SetDefaults() {
 	if glusterfs.Preallocation == nil {
-		glusterfs.Preallocation = PointerString("metadata")
+		glusterfs.Preallocation = util.Pointer("metadata")
 	}
 }
 
@@ -220,7 +223,7 @@ type ConfigStorageZFSoverISCSI struct {
 
 func (zfsoveriscsi *ConfigStorageZFSoverISCSI) SetDefaults() {
 	if zfsoveriscsi.Blocksize == nil {
-		zfsoveriscsi.Blocksize = PointerString("4k")
+		zfsoveriscsi.Blocksize = util.Pointer("4k")
 	}
 }
 
@@ -256,7 +259,7 @@ type ConfigStorageZFS struct {
 
 func (zfs *ConfigStorageZFS) SetDefaults() {
 	if zfs.Blocksize == nil {
-		zfs.Blocksize = PointerString("8k")
+		zfs.Blocksize = util.Pointer("8k")
 	}
 }
 
@@ -272,7 +275,7 @@ type ConfigStoragePBS struct {
 
 func (pbs *ConfigStoragePBS) SetDefaults() {
 	if pbs.Port == nil {
-		pbs.Port = PointerInt(8007)
+		pbs.Port = util.Pointer(8007)
 	}
 }
 
@@ -352,8 +355,8 @@ func (config *ConfigStorage) RemapFromAPI() {
 	}
 }
 
-func (newConfig *ConfigStorage) Validate(id string, create bool, client *Client) (err error) {
-	exists, err := client.CheckStorageExistance(id)
+func (newConfig *ConfigStorage) Validate(ctx context.Context, id string, create bool, client *Client) (err error) {
+	exists, err := client.CheckStorageExistance(ctx, id)
 	if err != nil {
 		return
 	}
@@ -372,7 +375,7 @@ func (newConfig *ConfigStorage) Validate(id string, create bool, client *Client)
 
 	var currentConfig *ConfigStorage
 	if exists {
-		currentConfig, err = NewConfigStorageFromApi(id, client)
+		currentConfig, err = NewConfigStorageFromApi(ctx, id, client)
 		if err != nil {
 			return
 		}
@@ -883,7 +886,7 @@ func (config *ConfigStorage) mapToApiValues(create bool) (params map[string]inte
 			}
 		}
 		config.Content = &ConfigStorageContent{
-			DiskImage: PointerBool(true),
+			DiskImage: util.Pointer(true),
 		}
 	case "zfs":
 		if config.ZFS != nil {
@@ -918,7 +921,7 @@ func (config *ConfigStorage) mapToApiValues(create bool) (params map[string]inte
 			}
 		}
 		config.Content = &ConfigStorageContent{
-			Backup: PointerBool(true),
+			Backup: util.Pointer(true),
 		}
 	}
 
@@ -939,15 +942,15 @@ func (config *ConfigStorage) mapToApiValues(create bool) (params map[string]inte
 	return
 }
 
-func (config *ConfigStorage) CreateWithValidate(id string, client *Client) (err error) {
-	err = config.Validate(id, true, client)
+func (config *ConfigStorage) CreateWithValidate(ctx context.Context, id string, client *Client) (err error) {
+	err = config.Validate(ctx, id, true, client)
 	if err != nil {
 		return
 	}
-	return config.Create(id, true, client)
+	return config.Create(ctx, id, true, client)
 }
 
-func (config *ConfigStorage) Create(id string, errorSupression bool, client *Client) (err error) {
+func (config *ConfigStorage) Create(ctx context.Context, id string, errorSupression bool, client *Client) (err error) {
 	var enableStorage bool
 	if errorSupression && config.Enable {
 		config.Enable = false
@@ -955,30 +958,30 @@ func (config *ConfigStorage) Create(id string, errorSupression bool, client *Cli
 	}
 	config.ID = id
 	params := config.mapToApiValues(true)
-	err = client.CreateStorage(params)
+	err = client.CreateStorage(ctx, params)
 	if err != nil {
 		params, _ := json.Marshal(&params)
 		return fmt.Errorf("error creating Storage Backend: %v, (params: %v)", err, string(params))
 	}
 	// if it gets enabled after it has been configured proxmox wont give the error that it can't connect to the storage backend
 	if enableStorage {
-		err = client.EnableStorage(id)
+		err = client.EnableStorage(ctx, id)
 	}
 	return
 }
 
-func (config *ConfigStorage) UpdateWithValidate(id string, client *Client) (err error) {
-	err = config.Validate(id, false, client)
+func (config *ConfigStorage) UpdateWithValidate(ctx context.Context, id string, client *Client) (err error) {
+	err = config.Validate(ctx, id, false, client)
 	if err != nil {
 		return
 	}
-	return config.Update(id, client)
+	return config.Update(ctx, id, client)
 }
 
-func (config *ConfigStorage) Update(id string, client *Client) (err error) {
+func (config *ConfigStorage) Update(ctx context.Context, id string, client *Client) (err error) {
 	config.ID = id
 	params := config.mapToApiValues(false)
-	err = client.UpdateStorage(id, params)
+	err = client.UpdateStorage(ctx, id, params)
 	if err != nil {
 		params, _ := json.Marshal(&params)
 		return fmt.Errorf("error creating Storage Backend: %v, (params: %v)", err, string(params))
@@ -986,10 +989,10 @@ func (config *ConfigStorage) Update(id string, client *Client) (err error) {
 	return
 }
 
-func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigStorage, err error) {
+func NewConfigStorageFromApi(ctx context.Context, storageid string, client *Client) (config *ConfigStorage, err error) {
 	// prepare json map to receive the information from the api
 	var rawConfig map[string]interface{}
-	rawConfig, err = client.GetStorageConfig(storageid)
+	rawConfig, err = client.GetStorageConfig(ctx, storageid)
 	if err != nil {
 		return nil, err
 	}
@@ -1017,7 +1020,7 @@ func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigSt
 		config.Directory.Path = rawConfig["path"].(string)
 		config.Directory.Shared = Itob(int(rawConfig["shared"].(float64)))
 		if _, isSet := rawConfig["preallocation"]; isSet {
-			config.Directory.Preallocation = PointerString(rawConfig["preallocation"].(string))
+			config.Directory.Preallocation = util.Pointer(rawConfig["preallocation"].(string))
 		}
 	case "lvm":
 		config.LVM = new(ConfigStorageLVM)
@@ -1033,10 +1036,10 @@ func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigSt
 		config.NFS.Export = rawConfig["export"].(string)
 		if _, isSet := rawConfig["options"]; isSet {
 			version := strings.Split(rawConfig["options"].(string), "=")
-			config.NFS.Version = PointerString(version[1])
+			config.NFS.Version = util.Pointer(version[1])
 		}
 		if _, isSet := rawConfig["preallocation"]; isSet {
-			config.NFS.Preallocation = PointerString(rawConfig["preallocation"].(string))
+			config.NFS.Preallocation = util.Pointer(rawConfig["preallocation"].(string))
 		}
 	case "smb":
 		config.SMB = new(ConfigStorageSMB)
@@ -1047,7 +1050,7 @@ func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigSt
 			if smbVersion == "default" {
 				config.SMB.Version = nil
 			} else {
-				config.SMB.Version = PointerString(smbVersion)
+				config.SMB.Version = util.Pointer(smbVersion)
 			}
 		}
 		if _, isSet := rawConfig["domain"]; isSet {
@@ -1057,7 +1060,7 @@ func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigSt
 			config.SMB.Username = rawConfig["username"].(string)
 		}
 		if _, isSet := rawConfig["preallocation"]; isSet {
-			config.SMB.Preallocation = PointerString(rawConfig["preallocation"].(string))
+			config.SMB.Preallocation = util.Pointer(rawConfig["preallocation"].(string))
 		}
 	case "glusterfs":
 		config.GlusterFS = new(ConfigStorageGlusterFS)
@@ -1067,7 +1070,7 @@ func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigSt
 			config.GlusterFS.Server2 = rawConfig["server2"].(string)
 		}
 		if _, isSet := rawConfig["preallocation"]; isSet {
-			config.GlusterFS.Preallocation = PointerString(rawConfig["preallocation"].(string))
+			config.GlusterFS.Preallocation = util.Pointer(rawConfig["preallocation"].(string))
 		}
 	case "iscsi":
 		config.ISCSI = new(ConfigStorageISCSI)
@@ -1095,7 +1098,7 @@ func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigSt
 		}
 	case "zfs-over-iscsi":
 		config.ZFSoverISCSI = new(ConfigStorageZFSoverISCSI)
-		config.ZFSoverISCSI.Blocksize = PointerString(rawConfig["blocksize"].(string))
+		config.ZFSoverISCSI.Blocksize = util.Pointer(rawConfig["blocksize"].(string))
 		config.ZFSoverISCSI.ISCSIprovider = rawConfig["iscsiprovider"].(string)
 		config.ZFSoverISCSI.RemapFromAPI()
 		switch config.ZFSoverISCSI.ISCSIprovider {
@@ -1128,7 +1131,7 @@ func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigSt
 		config.ZFS.Pool = rawConfig["pool"].(string)
 		config.ZFS.Thinprovision = Itob(int(rawConfig["sparse"].(float64)))
 		if _, isSet := rawConfig["blocksize"]; isSet {
-			config.ZFS.Blocksize = PointerString(rawConfig["blocksize"].(string))
+			config.ZFS.Blocksize = util.Pointer(rawConfig["blocksize"].(string))
 		}
 	case "pbs":
 		config.PBS = new(ConfigStoragePBS)
@@ -1136,7 +1139,7 @@ func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigSt
 		config.PBS.Server = rawConfig["server"].(string)
 		config.PBS.Username = rawConfig["username"].(string)
 		if _, isSet := rawConfig["port"]; isSet {
-			config.PBS.Port = PointerInt(int(rawConfig["port"].(float64)))
+			config.PBS.Port = util.Pointer(int(rawConfig["port"].(float64)))
 		}
 		if _, isSet := rawConfig["fingerprint"]; isSet {
 			config.PBS.Fingerprint = rawConfig["fingerprint"].(string)
@@ -1152,28 +1155,28 @@ func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigSt
 			contentArray := CSVtoArray(content)
 			config.Content = new(ConfigStorageContent)
 			if storageContentTypes[config.Type].([]bool)[0] {
-				config.Content.Backup = PointerBool(inArray(contentArray, storageContentTypesAPI[0]))
+				config.Content.Backup = util.Pointer(inArray(contentArray, storageContentTypesAPI[0]))
 			}
 			if storageContentTypes[config.Type].([]bool)[1] {
-				config.Content.Container = PointerBool(inArray(contentArray, storageContentTypesAPI[1]))
+				config.Content.Container = util.Pointer(inArray(contentArray, storageContentTypesAPI[1]))
 			}
 			if storageContentTypes[config.Type].([]bool)[2] {
-				config.Content.DiskImage = PointerBool(inArray(contentArray, storageContentTypesAPI[2]))
+				config.Content.DiskImage = util.Pointer(inArray(contentArray, storageContentTypesAPI[2]))
 			}
 			if storageContentTypes[config.Type].([]bool)[3] {
-				config.Content.Iso = PointerBool(inArray(contentArray, storageContentTypesAPI[3]))
+				config.Content.Iso = util.Pointer(inArray(contentArray, storageContentTypesAPI[3]))
 			}
 			if storageContentTypes[config.Type].([]bool)[4] {
-				config.Content.Snippets = PointerBool(inArray(contentArray, storageContentTypesAPI[4]))
+				config.Content.Snippets = util.Pointer(inArray(contentArray, storageContentTypesAPI[4]))
 			}
 			if storageContentTypes[config.Type].([]bool)[5] {
-				config.Content.Template = PointerBool(inArray(contentArray, storageContentTypesAPI[5]))
+				config.Content.Template = util.Pointer(inArray(contentArray, storageContentTypesAPI[5]))
 			}
 		} else {
 			// Edge cases
 			if config.Type == "iscsi" {
 				config.Content = new(ConfigStorageContent)
-				config.Content.DiskImage = PointerBool(false)
+				config.Content.DiskImage = util.Pointer(false)
 			}
 		}
 	}
@@ -1186,12 +1189,12 @@ func NewConfigStorageFromApi(storageid string, client *Client) (config *ConfigSt
 				retentionSettings[a[0]], _ = strconv.Atoi(a[1])
 			}
 			config.BackupRetention = new(ConfigStorageBackupRetention)
-			config.BackupRetention.Daily = PointerInt(retentionSettings["keep-daily"])
-			config.BackupRetention.Hourly = PointerInt(retentionSettings["keep-hourly"])
-			config.BackupRetention.Last = PointerInt(retentionSettings["keep-last"])
-			config.BackupRetention.Monthly = PointerInt(retentionSettings["keep-monthly"])
-			config.BackupRetention.Weekly = PointerInt(retentionSettings["keep-weekly"])
-			config.BackupRetention.Yearly = PointerInt(retentionSettings["keep-yearly"])
+			config.BackupRetention.Daily = util.Pointer(retentionSettings["keep-daily"])
+			config.BackupRetention.Hourly = util.Pointer(retentionSettings["keep-hourly"])
+			config.BackupRetention.Last = util.Pointer(retentionSettings["keep-last"])
+			config.BackupRetention.Monthly = util.Pointer(retentionSettings["keep-monthly"])
+			config.BackupRetention.Weekly = util.Pointer(retentionSettings["keep-weekly"])
+			config.BackupRetention.Yearly = util.Pointer(retentionSettings["keep-yearly"])
 		}
 	}
 	return

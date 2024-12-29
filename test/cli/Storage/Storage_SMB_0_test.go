@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	_ "github.com/perimeter-81/proxmox-api-go/cli/command/commands"
+	"github.com/perimeter-81/proxmox-api-go/internal/util"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	cliTest "github.com/perimeter-81/proxmox-api-go/test/cli"
 	storagesubtests "github.com/perimeter-81/proxmox-api-go/test/cli/Storage/storage-sub-tests"
@@ -15,7 +16,7 @@ func Test_Storage_SMB_0_Cleanup(t *testing.T) {
 
 func Test_Storage_SMB_0_Create_Full(t *testing.T) {
 	s := storagesubtests.CloneJson(storagesubtests.SMBFull)
-	s.SMB.Password = proxmox.PointerString("Enter123!")
+	s.SMB.Password = util.Pointer("Enter123!")
 	storagesubtests.Create(s, "smb-test-0", t)
 }
 

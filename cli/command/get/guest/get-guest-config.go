@@ -1,4 +1,4 @@
-package get
+package guest
 
 import (
 	"github.com/perimeter-81/proxmox-api-go/cli"
@@ -6,15 +6,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var get_guestCmd = &cobra.Command{
-	Use:   "guest GUESTID",
+var configCmd = &cobra.Command{
+	Use:   "config GUESTID",
 	Short: "Gets the configuration of the specified guest",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		id := cli.ValidateIntIDset(args, "GuestID")
 		vmr := proxmox.NewVmRef(id)
 		c := cli.NewClient()
-		err = c.CheckVmRef(vmr)
+		err = c.CheckVmRef(cli.Context(), vmr)
 		if err != nil {
 			return
 		}
@@ -22,18 +22,18 @@ var get_guestCmd = &cobra.Command{
 		var config interface{}
 		switch vmType {
 		case "qemu":
-			config, err = proxmox.NewConfigQemuFromApi(vmr, c)
+			config, err = proxmox.NewConfigQemuFromApi(cli.Context(), vmr, c)
 		case "lxc":
-			config, err = proxmox.NewConfigLxcFromApi(vmr, c)
+			config, err = proxmox.NewConfigLxcFromApi(cli.Context(), vmr, c)
 		}
 		if err != nil {
 			return
 		}
-		cli.PrintFormattedJson(GetCmd.OutOrStdout(), config)
+		cli.PrintFormattedJson(guestCmd.OutOrStdout(), config)
 		return
 	},
 }
 
 func init() {
-	GetCmd.AddCommand(get_guestCmd)
+	guestCmd.AddCommand(configCmd)
 }

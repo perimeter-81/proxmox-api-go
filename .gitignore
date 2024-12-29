@@ -1,3 +1,7 @@
 proxmox-api-go
 .vagrant/
 .vscode
+.env
+
+*coverage.html
+*coverage.out

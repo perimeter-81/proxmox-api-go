@@ -1,6 +1,7 @@
 package proxmox
 
 import (
+	"fmt"
 	"log"
 	"regexp"
 	"strconv"
@@ -8,6 +9,8 @@ import (
 )
 
 var rxUserTokenExtract = regexp.MustCompile("[a-z0-9]+@[a-z0-9]+!([a-z0-9]+)")
+
+const hexPrefix string = "0x"
 
 func inArray(arr []string, str string) bool {
 	for _, elem := range arr {
@@ -17,6 +20,23 @@ func inArray(arr []string, str string) bool {
 	}
 
 	return false
+}
+
+func Btoi(b bool) int {
+	switch b {
+	case true:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// ensures a string has a certain ensurePrefix
+func ensurePrefix(prefix, text string) string {
+	if strings.HasPrefix(text, prefix) {
+		return text
+	}
+	return prefix + text
 }
 
 func Itob(i int) bool {
@@ -112,7 +132,7 @@ func DiskSizeGB(dcSize interface{}) float64 {
 	switch dcSize := dcSize.(type) {
 	case string:
 		diskString := strings.ToUpper(dcSize)
-		re := regexp.MustCompile("([0-9]+)([A-Z]*)")
+		re := regexp.MustCompile("([0-9]+(?:`.`[0-9]+)?)([TGMK]B?)?")
 		diskArray := re.FindStringSubmatch(diskString)
 
 		diskSize, _ = strconv.ParseFloat(diskArray[1], 64)
@@ -168,25 +188,26 @@ func ArrayToStringType(inputarray []interface{}) (array []string) {
 	return
 }
 
-// Creates a pointer to a string
-func PointerString(text string) *string {
-	return &text
-}
-
-// Creates a pointer to an int
-func PointerInt(number int) *int {
-	return &number
-}
-
-// Creates a pointer to a bool
-func PointerBool(boolean bool) *bool {
-	return &boolean
-}
-
 func failError(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+// Convert a bool to a string "1" or "0"
+func boolToIntString(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
+}
+
+func arrayToStringArray[T fmt.Stringer](arr []T) []string {
+	strArr := make([]string, len(arr))
+	for i, v := range arr {
+		strArr[i] = v.String()
+	}
+	return strArr
 }
 
 // Create list of http.Header out of string, separator is ","
@@ -203,4 +224,66 @@ func createHeaderList(header_string string, sess *Session) (*Session, error) {
 		sess.Headers[header_string_split[i]] = []string{header_string_split[i+1]}
 	}
 	return sess, nil
+}
+
+// check if a key exists in a nested array of map[string]interface{}
+func keyExists(array []interface{}, key string) (existence bool) {
+	for i := range array {
+		item := array[i].(map[string]interface{})
+		if _, isSet := item[key]; isSet {
+			return true
+		}
+	}
+	return false
+}
+
+// converts a float to a string with x number of decimals, and trims trailing zeros and the decimal point
+func floatToTrimmedString(f float64, maxDecimals uint8) (s string) {
+	s = strings.TrimRight(strconv.FormatFloat(f, 'f', int(maxDecimals), 64), "0")
+	if s[len(s)-1:] == "." {
+		return s[:len(s)-1]
+	}
+	return
+}
+
+func isIPv4(address string) bool {
+	return strings.Count(address, ":") == 0
+}
+
+func isIPv6(address string) bool {
+	return strings.Count(address, ":") > 2
+}
+
+func splitStringOfSettings(settings string) map[string]string {
+	settingValuePairs := strings.Split(settings, ",")
+	settingMap := map[string]string{}
+	for _, e := range settingValuePairs {
+		keyValuePair := strings.SplitN(e, "=", 2)
+		var value string
+		if len(keyValuePair) == 2 {
+			value = keyValuePair[1]
+		}
+		settingMap[keyValuePair[0]] = value
+	}
+	return settingMap
+}
+
+// subtracts array B from array A
+func subtractArray[T comparable](A, B []T) (result []T) {
+	elements := make(map[T]bool)
+	for _, item := range B {
+		elements[item] = true
+	}
+	for _, item := range A {
+		if !elements[item] {
+			result = append(result, item)
+		}
+	}
+	return
+}
+
+// To be used during testing
+func uninitializedArray[T any]() []T {
+	var x []T
+	return x
 }

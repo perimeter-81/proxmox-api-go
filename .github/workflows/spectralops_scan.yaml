@@ -1,0 +1,22 @@
+name: Trigger SpectralOps Scanner
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  spectralops_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use SpectralOps Scanner action
+        uses: perimeter-81/actions/actions/security/spectralops@main
+        with:
+          spectral-args: "scan --ok --engines oss,secrets,iac --asset-mapping 'p81-core'"

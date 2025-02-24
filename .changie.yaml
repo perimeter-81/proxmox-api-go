@@ -5,7 +5,7 @@ changelogPath: CHANGELOG.md
 versionExt: md
 versionFormat: '## {{.Version}} - {{.Time.Format "2006-01-02"}}'
 kindFormat: '### {{.Kind}}'
-changeFormat: '* [PR: #{{.Custom.PR}}](https://github.com/perimeter-81/proxmox-api-go/pull/{{.Custom.PR}}) || [Jira P81-{{.Custom.JiraID}}](https://perimeter81.atlassian.net/browse/p81-{{.Custom.JiraID}}) || {{.Body}}'
+changeFormat: '* [PR: #{{.Custom.PR}}](https://github.com/perimeter-81/proxmox-api-go/pull/{{.Custom.PR}}) || [Jira P81-{{.Custom.JiraID}}](https://perimeter81.atlassian.net/browse/P81-{{.Custom.JiraID}}) || {{.Body}}'
 kinds:
   - label: New features
   - label: Improvments
@@ -21,3 +21,9 @@ custom:
   - key: JiraID
     type: int
     minInt: 1
+newlines:
+  afterChangelogHeader: 1
+  afterKind: 1
+  afterChangelogVersion: 1
+  beforeKind: 1
+  endOfVersion: 2

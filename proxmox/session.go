@@ -31,15 +31,49 @@ type Session struct {
 	Headers    http.Header
 }
 
+// secureTransport wraps an http.RoundTripper to validate headers before sending requests.
+// While Go's default HTTP client already validates headers and prevents invalid characters,
+// it returns error messages containing the full header value. For sensitive headers like
+// authentication tokens, this could leak secrets into logs or error messages.
+// This transport performs the validation earlier and returns sanitized errors.
+type secureTransport struct {
+	underlying http.RoundTripper
+}
+
+func (t *secureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if err := validateHeader(req.Header); err != nil {
+		return nil, fmt.Errorf("invalid header: %w", err)
+	}
+	return t.underlying.RoundTrip(req)
+}
+
+// validateHeader checks for invalid characters in header values without exposing the values
+// in error messages. This prevents sensitive data like authentication tokens from being
+// leaked when they contain invalid characters.
+// As per RFC 7230, control characters (ASCII codes 0-31) and DEL (127) are not allowed
+// in HTTP header values.
+func validateHeader(h http.Header) error {
+	for key, values := range h {
+		for _, v := range values {
+			for _, r := range v {
+				if r < 32 || r == 127 {
+					return fmt.Errorf("value for key %q contains invalid characters", key)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func NewSession(apiUrl string, hclient *http.Client, proxyString string, tls *tls.Config) (session *Session, err error) {
 	if hclient == nil {
+		var tr *http.Transport
 		if proxyString == "" {
-			tr := &http.Transport{
+			tr = &http.Transport{
 				TLSClientConfig:    tls,
 				DisableCompression: true,
 				Proxy:              nil,
 			}
-			hclient = &http.Client{Transport: tr}
 		} else {
 			proxyURL, err := url.ParseRequestURI(proxyString)
 			if err != nil {
@@ -47,16 +81,14 @@ func NewSession(apiUrl string, hclient *http.Client, proxyString string, tls *tl
 			}
 			if _, _, err := net.SplitHostPort(proxyURL.Host); err != nil {
 				return nil, err
-			} else {
-				// Only build a transport if we're also building the client
-				tr := &http.Transport{
-					TLSClientConfig:    tls,
-					DisableCompression: true,
-					Proxy:              http.ProxyURL(proxyURL),
-				}
-				hclient = &http.Client{Transport: tr}
+			}
+			tr = &http.Transport{
+				TLSClientConfig:    tls,
+				DisableCompression: true,
+				Proxy:              http.ProxyURL(proxyURL),
 			}
 		}
+		hclient = &http.Client{Transport: &secureTransport{underlying: tr}}
 	}
 	session = &Session{
 		httpClient: hclient,

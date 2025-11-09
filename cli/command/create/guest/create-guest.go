@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/perimeter-81/proxmox-api-go/cli"
@@ -38,7 +39,7 @@ func createGuest(args []string, IDtype string) (err error) {
 		if err != nil {
 			return
 		}
-		err = config.CreateVm(vmr, c)
+		err = config.CreateVm(context.Background(), vmr, c)
 	}
 	if err != nil {
 		return

@@ -1,6 +1,8 @@
 package get
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -14,7 +16,7 @@ var get_guestCmd = &cobra.Command{
 		id := cli.ValidateIntIDset(args, "GuestID")
 		vmr := proxmox.NewVmRef(id)
 		c := cli.NewClient()
-		err = c.CheckVmRef(vmr)
+		err = c.CheckVmRef(context.Background(), vmr)
 		if err != nil {
 			return
 		}
@@ -22,7 +24,7 @@ var get_guestCmd = &cobra.Command{
 		var config interface{}
 		switch vmType {
 		case "qemu":
-			config, err = proxmox.NewConfigQemuFromApi(vmr, c)
+			config, err = proxmox.NewConfigQemuFromApi(context.Background(), vmr, c)
 		case "lxc":
 			config, err = proxmox.NewConfigLxcFromApi(vmr, c)
 		}

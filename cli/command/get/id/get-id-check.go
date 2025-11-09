@@ -1,6 +1,7 @@
 package id
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/perimeter-81/proxmox-api-go/cli"
@@ -14,7 +15,7 @@ var id_checkCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		id := cli.ValidateIntIDset(args, "ID")
 		c := cli.NewClient()
-		exists, err := c.VMIdExists(id)
+		exists, err := c.VMIdExists(context.Background(), id)
 		if err != nil {
 			return
 		}

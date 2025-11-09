@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"flag"
@@ -41,7 +42,7 @@ func main() {
 	if userRequiresAPIToken(os.Getenv("PM_USER")) {
 		c.SetAPIToken(os.Getenv("PM_USER"), os.Getenv("PM_PASS"))
 		// As test, get the version of the server
-		_, err := c.GetVersion()
+		_, err := c.GetVersion(context.Background())
 		if err != nil {
 			log.Fatalf("login error: %s", err)
 		}
@@ -89,38 +90,38 @@ func main() {
 		} else {
 			testpath = flag.Args()[2]
 		}
-		permissions, err := c.GetUserPermissions(testUser, testpath)
+		permissions, err := c.GetUserPermissions(context.Background(), testUser, testpath)
 		failError(err)
 		sort.Strings(permissions)
 		log.Println(permissions)
 
 	case "start":
 		vmr = proxmox.NewVmRef(vmid)
-		jbody, err = c.StartVm(vmr)
+		jbody, err = c.StartVm(context.Background(), vmr)
 		failError(err)
 
 	case "stop":
 
 		vmr = proxmox.NewVmRef(vmid)
-		jbody, err = c.StopVm(vmr)
+		jbody, err = c.StopVm(context.Background(), vmr)
 		failError(err)
 
 	case "destroy":
 		vmr = proxmox.NewVmRef(vmid)
-		jbody, err = c.StopVm(vmr)
+		jbody, err = c.StopVm(context.Background(), vmr)
 		failError(err)
-		jbody, err = c.DeleteVm(vmr)
+		jbody, err = c.DeleteVm(context.Background(), vmr)
 		failError(err)
 
 	case "getConfig":
 		vmr = proxmox.NewVmRef(vmid)
-		err := c.CheckVmRef(vmr)
+		err := c.CheckVmRef(context.Background(), vmr)
 		failError(err)
 		vmType := vmr.GetVmType()
 		var config interface{}
 		switch vmType {
 		case "qemu":
-			config, err = proxmox.NewConfigQemuFromApi(vmr, c)
+			config, err = proxmox.NewConfigQemuFromApi(context.Background(), vmr, c)
 		case "lxc":
 			config, err = proxmox.NewConfigLxcFromApi(vmr, c)
 		}
@@ -131,9 +132,9 @@ func main() {
 		// TODO make getNetworkInterfaces in new cli
 	case "getNetworkInterfaces":
 		vmr = proxmox.NewVmRef(vmid)
-		err := c.CheckVmRef(vmr)
+		err := c.CheckVmRef(context.Background(), vmr)
 		failError(err)
-		networkInterfaces, err := c.GetVmAgentNetworkInterfaces(vmr)
+		networkInterfaces, err := c.GetVmAgentNetworkInterfaces(context.Background(), vmr)
 		failError(err)
 
 		networkInterfaceJSON, err := json.Marshal(networkInterfaces)
@@ -145,7 +146,7 @@ func main() {
 		failError(err)
 		vmr = proxmox.NewVmRef(vmid)
 		vmr.SetNode(flag.Args()[2])
-		failError(config.CreateVm(vmr, c))
+		failError(config.CreateVm(context.Background(), vmr, c))
 		log.Println("Complete")
 
 	case "createLxc":
@@ -168,28 +169,28 @@ func main() {
 		if vmid > 0 {
 			vmr = proxmox.NewVmRef(vmid)
 		} else {
-			nextid, err := c.GetNextID(0)
+			nextid, err := c.GetNextID(context.Background(), 0)
 			failError(err)
 			vmr = proxmox.NewVmRef(nextid)
 		}
 		vmr.SetNode(flag.Args()[1])
 		log.Printf("Creating node %s: \n", mode)
 		log.Println(vmr)
-		failError(config.CreateVm(vmr, c))
-		_, err = c.StartVm(vmr)
+		failError(config.CreateVm(context.Background(), vmr, c))
+		_, err = c.StartVm(context.Background(), vmr)
 		failError(err)
 
 		// ISO mode waits for the VM to reboot to exit
 		// while PXE mode just launches the VM and is done
 		if config.QemuIso != "" {
-			_, err := proxmox.SshForwardUsernet(vmr, c)
+			_, err := proxmox.SshForwardUsernet(context.Background(), vmr, c)
 			failError(err)
 			log.Println("Waiting for CDRom install shutdown (at least 5 minutes)")
-			failError(proxmox.WaitForShutdown(vmr, c))
+			failError(proxmox.WaitForShutdown(context.Background(), vmr, c))
 			log.Println("Restarting")
-			_, err = c.StartVm(vmr)
+			_, err = c.StartVm(context.Background(), vmr)
 			failError(err)
-			_, err = proxmox.SshForwardUsernet(vmr, c)
+			_, err = proxmox.SshForwardUsernet(context.Background(), vmr, c)
 			failError(err)
 			//log.Println("SSH Portforward on:" + sshPort)
 		}
@@ -197,9 +198,9 @@ func main() {
 		log.Println("Complete")
 
 	case "idstatus":
-		maxid, err := proxmox.MaxVmId(c)
+		maxid, err := proxmox.MaxVmId(context.Background(), c)
 		failError(err)
-		nextid, err := c.GetNextID(vmid)
+		nextid, err := c.GetNextID(context.Background(), vmid)
 		failError(err)
 		log.Println("---")
 		log.Printf("MaxID: %d\n", maxid)
@@ -211,14 +212,14 @@ func main() {
 		failError(err)
 		fmt.Println("Parsed conf: ", config)
 		log.Println("Looking for template: " + flag.Args()[1])
-		sourceVmrs, err := c.GetVmRefsByName(flag.Args()[1])
+		sourceVmrs, err := c.GetVmRefsByName(context.Background(), flag.Args()[1])
 		failError(err)
 		if sourceVmrs == nil {
 			log.Fatal("Can't find template")
 			return
 		}
 		if vmid == 0 {
-			vmid, err = c.GetNextID(0)
+			vmid, err = c.GetNextID(context.Background(), 0)
 			failError(err)
 		}
 		vmr = proxmox.NewVmRef(vmid)
@@ -233,26 +234,26 @@ func main() {
 			}
 		}
 
-		failError(config.CloneVm(sourceVmr, vmr, c))
-		failError(config.UpdateConfig(vmr, c))
+		failError(config.CloneVm(context.Background(), sourceVmr, vmr, c))
+		failError(config.UpdateConfig(context.Background(), vmr, c))
 		log.Println("Complete")
 
 	case "createQemuSnapshot":
-		sourceVmr, err := c.GetVmRefByName(flag.Args()[1])
+		sourceVmr, err := c.GetVmRefByName(context.Background(), flag.Args()[1])
 		failError(err)
-		jbody, err = c.CreateQemuSnapshot(sourceVmr, flag.Args()[2])
+		jbody, err = c.CreateQemuSnapshot(context.Background(), sourceVmr, flag.Args()[2])
 		failError(err)
 
 	case "deleteQemuSnapshot":
-		sourceVmr, err := c.GetVmRefByName(flag.Args()[1])
+		sourceVmr, err := c.GetVmRefByName(context.Background(), flag.Args()[1])
 		failError(err)
-		jbody, err = c.DeleteQemuSnapshot(sourceVmr, flag.Args()[2])
+		jbody, err = c.DeleteQemuSnapshot(context.Background(), sourceVmr, flag.Args()[2])
 		failError(err)
 
 	case "listQemuSnapshot":
-		sourceVmr, err := c.GetVmRefByName(flag.Args()[1])
+		sourceVmr, err := c.GetVmRefByName(context.Background(), flag.Args()[1])
 		if err == nil {
-			jbody, _, err = c.ListQemuSnapshot(sourceVmr)
+			jbody, _, err = c.ListQemuSnapshot(context.Background(), sourceVmr)
 			if rec, ok := jbody.(map[string]interface{}); ok {
 				temp := rec["data"].([]interface{})
 				for _, val := range temp {
@@ -268,10 +269,10 @@ func main() {
 		failError(err)
 
 	case "listQemuSnapshot2":
-		sourceVmrs, err := c.GetVmRefsByName(flag.Args()[1])
+		sourceVmrs, err := c.GetVmRefsByName(context.Background(), flag.Args()[1])
 		if err == nil {
 			for _, sourceVmr := range sourceVmrs {
-				jbody, _, err = c.ListQemuSnapshot(sourceVmr)
+				jbody, _, err = c.ListQemuSnapshot(context.Background(), sourceVmr)
 				if rec, ok := jbody.(map[string]interface{}); ok {
 					temp := rec["data"].([]interface{})
 					for _, val := range temp {
@@ -288,31 +289,31 @@ func main() {
 		failError(err)
 
 	case "rollbackQemu":
-		sourceVmr, err := c.GetVmRefByName(flag.Args()[1])
+		sourceVmr, err := c.GetVmRefByName(context.Background(), flag.Args()[1])
 		failError(err)
-		jbody, err = c.RollbackQemuVm(sourceVmr, flag.Args()[2])
+		jbody, err = c.RollbackQemuVm(context.Background(), sourceVmr, flag.Args()[2])
 		failError(err)
 		// TODO make sshforward in new cli
 	case "sshforward":
 		vmr = proxmox.NewVmRef(vmid)
-		sshPort, err := proxmox.SshForwardUsernet(vmr, c)
+		sshPort, err := proxmox.SshForwardUsernet(context.Background(), vmr, c)
 		failError(err)
 		log.Println("SSH Portforward on:" + sshPort)
 		// TODO make sshbackward in new cli
 	case "sshbackward":
 		vmr = proxmox.NewVmRef(vmid)
-		err = proxmox.RemoveSshForwardUsernet(vmr, c)
+		err = proxmox.RemoveSshForwardUsernet(context.Background(), vmr, c)
 		failError(err)
 		log.Println("SSH Portforward off")
 		// TODO make sendstring in new cli
 	case "sendstring":
 		vmr = proxmox.NewVmRef(vmid)
-		err = proxmox.SendKeysString(vmr, c, flag.Args()[2])
+		err = proxmox.SendKeysString(context.Background(), vmr, c, flag.Args()[2])
 		failError(err)
 		log.Println("Keys sent")
 
 	case "nextid":
-		id, err := c.GetNextID(0)
+		id, err := c.GetNextID(context.Background(), 0)
 		failError(err)
 		log.Printf("Getting Next Free ID: %d\n", id)
 
@@ -323,7 +324,7 @@ func main() {
 		}
 		i, err := strconv.Atoi(flag.Args()[1])
 		failError(err)
-		exists, err := c.VMIdExists(i)
+		exists, err := c.VMIdExists(context.Background(), i)
 		failError(err)
 		if exists {
 			log.Printf("Selected ID is in use: %d\n", i)
@@ -333,13 +334,13 @@ func main() {
 		// TODO make migrate in new cli
 	case "migrate":
 		vmr := proxmox.NewVmRef(vmid)
-		c.GetVmInfo(vmr)
+		c.GetVmInfo(context.Background(), vmr)
 		args := flag.Args()
 		if len(args) <= 1 {
 			fmt.Printf("Missing target node\n")
 			os.Exit(1)
 		}
-		_, err := c.MigrateNode(vmr, args[2], true)
+		_, err := c.MigrateNode(context.Background(), vmr, args[2], true)
 
 		if err != nil {
 			log.Printf("Error to move %+v\n", err)
@@ -348,7 +349,7 @@ func main() {
 		log.Printf("VM %d is moved on %s\n", vmid, args[1])
 
 	case "getNodeList":
-		nodes, err := c.GetNodeList()
+		nodes, err := c.GetNodeList(context.Background())
 		if err != nil {
 			log.Printf("Error listing Nodes %+v\n", err)
 			os.Exit(1)
@@ -360,7 +361,7 @@ func main() {
 	// only returns enabled resources
 	// TODO make getResourceList in new cli
 	case "getResourceList":
-		resource, err := c.GetResourceList("")
+		resource, err := c.GetResourceList(context.Background(), "")
 		if err != nil {
 			log.Printf("Error listing resources %+v\n", err)
 			os.Exit(1)
@@ -370,7 +371,7 @@ func main() {
 		fmt.Println(string(rsList))
 
 	case "getVmList":
-		vms, err := c.GetVmList()
+		vms, err := c.GetVmList(context.Background())
 		if err != nil {
 			log.Printf("Error listing VMs %+v\n", err)
 			os.Exit(1)
@@ -387,12 +388,12 @@ func main() {
 		i, err := strconv.Atoi(flag.Args()[1])
 		failError(err)
 		vmr := proxmox.NewVmRef(i)
-		config, err := proxmox.NewConfigQemuFromApi(vmr, c)
+		config, err := proxmox.NewConfigQemuFromApi(context.Background(), vmr, c)
 		failError(err)
 		fmt.Println(config)
 		// TODO make getVmInfo in new cli
 	case "getVersion":
-		versionInfo, err := c.GetVersion()
+		versionInfo, err := c.GetVersion(context.Background())
 		failError(err)
 		version, err := json.Marshal(versionInfo)
 		failError(err)
@@ -400,7 +401,7 @@ func main() {
 
 	//Pool
 	case "getPoolList":
-		pools, err := c.GetPoolList()
+		pools, err := c.GetPoolList(context.Background())
 		if err != nil {
 			log.Printf("Error listing pools %+v\n", err)
 			os.Exit(1)
@@ -415,7 +416,7 @@ func main() {
 			os.Exit(1)
 		}
 		poolid := flag.Args()[1]
-		poolinfo, err := c.GetPoolInfo(poolid)
+		poolinfo, err := c.GetPoolInfo(context.Background(), poolid)
 		if err != nil {
 			log.Printf("Error getting pool info %+v\n", err)
 			os.Exit(1)
@@ -436,7 +437,7 @@ func main() {
 			comment = flag.Args()[2]
 		}
 
-		err := c.CreatePool(poolid, comment)
+		err := c.CreatePool(context.Background(), poolid, comment)
 		failError(err)
 		fmt.Printf("Pool %s created\n", poolid)
 
@@ -447,7 +448,7 @@ func main() {
 		}
 		poolid := flag.Args()[1]
 
-		err := c.DeletePool(poolid)
+		err := c.DeletePool(context.Background(), poolid)
 		failError(err)
 		fmt.Printf("Pool %s removed\n", poolid)
 
@@ -460,7 +461,7 @@ func main() {
 		poolid := flag.Args()[1]
 		comment := flag.Args()[2]
 
-		err := c.UpdatePoolComment(poolid, comment)
+		err := c.UpdatePoolComment(context.Background(), poolid, comment)
 		failError(err)
 		fmt.Printf("Pool %s updated\n", poolid)
 
@@ -469,14 +470,14 @@ func main() {
 		var config interface{}
 		userId, err := proxmox.NewUserID(flag.Args()[1])
 		failError(err)
-		config, err = proxmox.NewConfigUserFromApi(userId, c)
+		config, err = proxmox.NewConfigUserFromApi(context.Background(), userId, c)
 		failError(err)
 		cj, err := json.MarshalIndent(config, "", "  ")
 		failError(err)
 		log.Println(string(cj))
 
 	case "getUserList":
-		users, err := proxmox.ListUsers(c, true)
+		users, err := proxmox.ListUsers(context.Background(), c, true)
 		if err != nil {
 			log.Printf("Error listing users %+v\n", err)
 			os.Exit(1)
@@ -495,7 +496,7 @@ func main() {
 		err = proxmox.ConfigUser{
 			Password: proxmox.UserPassword(flag.Args()[2]),
 			User:     userId,
-		}.UpdateUserPassword(c)
+		}.UpdateUserPassword(context.Background(), c)
 		failError(err)
 		fmt.Printf("Password of User %s updated\n", userId.ToString())
 
@@ -508,7 +509,7 @@ func main() {
 		if len(flag.Args()) > 2 {
 			password = proxmox.UserPassword(flag.Args()[2])
 		}
-		failError(config.SetUser(userId, password, c))
+		failError(config.SetUser(context.Background(), userId, password, c))
 		log.Printf("User %s has been configured\n", userId.ToString())
 
 	case "deleteUser":
@@ -518,13 +519,13 @@ func main() {
 		}
 		userId, err := proxmox.NewUserID(flag.Args()[1])
 		failError(err)
-		err = proxmox.ConfigUser{User: userId}.DeleteUser(c)
+		err = proxmox.ConfigUser{User: userId}.DeleteUser(context.Background(), c)
 		failError(err)
 		fmt.Printf("User %s removed\n", userId.ToString())
 
 	//ACME Account
 	case "getAcmeAccountList":
-		accounts, err := c.GetAcmeAccountList()
+		accounts, err := c.GetAcmeAccountList(context.Background())
 		if err != nil {
 			log.Printf("Error listing Acme accounts %+v\n", err)
 			os.Exit(1)
@@ -563,7 +564,7 @@ func main() {
 			os.Exit(1)
 		}
 		acmeid := flag.Args()[1]
-		_, err := c.UpdateAcmeAccountEmails(acmeid, flag.Args()[2])
+		_, err := c.UpdateAcmeAccountEmails(context.Background(), acmeid, flag.Args()[2])
 		failError(err)
 		fmt.Printf("Acme account %s has been updated\n", acmeid)
 
@@ -573,13 +574,13 @@ func main() {
 			os.Exit(1)
 		}
 		acmeid := flag.Args()[1]
-		_, err := c.DeleteAcmeAccount(acmeid)
+		_, err := c.DeleteAcmeAccount(context.Background(), acmeid)
 		failError(err)
 		fmt.Printf("Acme account %s removed\n", acmeid)
 
 	//ACME Plugin
 	case "getAcmePluginList":
-		plugins, err := c.GetAcmePluginList()
+		plugins, err := c.GetAcmePluginList(context.Background())
 		if err != nil {
 			log.Printf("Error listing Acme plugins %+v\n", err)
 			os.Exit(1)
@@ -614,7 +615,7 @@ func main() {
 			os.Exit(1)
 		}
 		pluginid := flag.Args()[1]
-		err := c.DeleteAcmePlugin(pluginid)
+		err := c.DeleteAcmePlugin(context.Background(), pluginid)
 		failError(err)
 		fmt.Printf("Acme plugin %s removed\n", pluginid)
 
@@ -629,7 +630,7 @@ func main() {
 		log.Println(string(cj))
 
 	case "getMetricsServerList":
-		metrics, err := c.GetMetricsServerList()
+		metrics, err := c.GetMetricsServerList(context.Background())
 		if err != nil {
 			log.Printf("Error listing Metrics Servers %+v\n", err)
 			os.Exit(1)
@@ -651,13 +652,13 @@ func main() {
 			os.Exit(1)
 		}
 		metricsid := flag.Args()[1]
-		err := c.DeleteMetricServer(metricsid)
+		err := c.DeleteMetricServer(context.Background(), metricsid)
 		failError(err)
 		fmt.Printf("Metrics Server %s removed\n", metricsid)
 
 	//Storage
 	case "getStorageList":
-		storage, err := c.GetStorageList()
+		storage, err := c.GetStorageList(context.Background())
 		if err != nil {
 			log.Printf("Error listing Storages %+v\n", err)
 			os.Exit(1)
@@ -673,7 +674,7 @@ func main() {
 		}
 		var config interface{}
 		storageid := flag.Args()[1]
-		config, err := proxmox.NewConfigStorageFromApi(storageid, c)
+		config, err := proxmox.NewConfigStorageFromApi(context.Background(), storageid, c)
 		failError(err)
 		cj, err := json.MarshalIndent(config, "", "  ")
 		failError(err)
@@ -687,7 +688,7 @@ func main() {
 		config, err := proxmox.NewConfigStorageFromJson(GetConfig(*fConfigFile))
 		failError(err)
 		storageid := flag.Args()[1]
-		failError(config.CreateWithValidate(storageid, c))
+		failError(config.CreateWithValidate(context.Background(), storageid, c))
 		log.Printf("Storage %s has been created\n", storageid)
 
 	case "updateStorage":
@@ -698,7 +699,7 @@ func main() {
 		config, err := proxmox.NewConfigStorageFromJson(GetConfig(*fConfigFile))
 		failError(err)
 		storageid := flag.Args()[1]
-		failError(config.UpdateWithValidate(storageid, c))
+		failError(config.UpdateWithValidate(context.Background(), storageid, c))
 		log.Printf("Storage %s has been updated\n", storageid)
 
 	case "deleteStorage":
@@ -707,7 +708,7 @@ func main() {
 			os.Exit(1)
 		}
 		storageid := flag.Args()[1]
-		err := c.DeleteStorage(storageid)
+		err := c.DeleteStorage(context.Background(), storageid)
 		failError(err)
 		fmt.Printf("Storage %s removed\n", storageid)
 
@@ -721,7 +722,7 @@ func main() {
 		if len(flag.Args()) == 3 {
 			typeFilter = flag.Args()[2]
 		}
-		exitStatus, err := c.GetNetworkList(node, typeFilter)
+		exitStatus, err := c.GetNetworkList(context.Background(), node, typeFilter)
 		if err != nil {
 			failError(fmt.Errorf("error: %+v\n api error: %s", err, exitStatus))
 		}
@@ -733,7 +734,7 @@ func main() {
 		}
 		node := flag.Args()[1]
 		iface := flag.Args()[2]
-		exitStatus, err := c.GetNetworkInterface(node, iface)
+		exitStatus, err := c.GetNetworkInterface(context.Background(), node, iface)
 		if err != nil {
 			failError(fmt.Errorf("error: %+v\n api error: %s", err, exitStatus))
 		}
@@ -742,13 +743,13 @@ func main() {
 	case "createNetwork":
 		config, err := proxmox.NewConfigNetworkFromJSON(GetConfig(*fConfigFile))
 		failError(err)
-		failError(config.CreateNetwork(c))
+		failError(config.CreateNetwork(context.Background(), c))
 		log.Printf("Network %s has been created\n", config.Iface)
 
 	case "updateNetwork":
 		config, err := proxmox.NewConfigNetworkFromJSON(GetConfig(*fConfigFile))
 		failError(err)
-		failError(config.UpdateNetwork(c))
+		failError(config.UpdateNetwork(context.Background(), c))
 		log.Printf("Network %s has been updated\n", config.Iface)
 
 	case "deleteNetwork":
@@ -757,7 +758,7 @@ func main() {
 		}
 		node := flag.Args()[1]
 		iface := flag.Args()[2]
-		exitStatus, err := c.DeleteNetwork(node, iface)
+		exitStatus, err := c.DeleteNetwork(context.Background(), node, iface)
 		if err != nil {
 			failError(fmt.Errorf("error: %+v\n api error: %s", err, exitStatus))
 		}
@@ -768,7 +769,7 @@ func main() {
 			failError(fmt.Errorf("error: Proxmox node name required"))
 		}
 		node := flag.Args()[1]
-		exitStatus, err := c.ApplyNetwork(node)
+		exitStatus, err := c.ApplyNetwork(context.Background(), node)
 		if err != nil {
 			failError(fmt.Errorf("error: %+v\n api error: %s", err, exitStatus))
 		}
@@ -779,7 +780,7 @@ func main() {
 			failError(fmt.Errorf("error: Proxmox node name required"))
 		}
 		node := flag.Args()[1]
-		exitStatus, err := c.RevertNetwork(node)
+		exitStatus, err := c.RevertNetwork(context.Background(), node)
 		if err != nil {
 			failError(fmt.Errorf("error: %+v\n api error: %s", err, exitStatus))
 		}

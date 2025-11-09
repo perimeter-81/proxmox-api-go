@@ -1,6 +1,8 @@
 package template
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -21,7 +23,7 @@ var template_downloadCmd = &cobra.Command{
 		if err != nil {
 			return
 		}
-		err = proxmox.DownloadLxcTemplate(c, config)
+		err = proxmox.DownloadLxcTemplate(context.Background(), c, config)
 		if err != nil {
 			return
 		}

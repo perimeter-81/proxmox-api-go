@@ -1,6 +1,8 @@
 package list
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -16,7 +18,7 @@ var (
 		Args:             cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			id := cli.ValidateExistingGuestID(args, 0)
-			jBody, err := proxmox.ListSnapshots(cli.NewClient(), proxmox.NewVmRef(id))
+			jBody, err := proxmox.ListSnapshots(context.Background(), cli.NewClient(), proxmox.NewVmRef(id))
 			if err != nil {
 				noTree = false
 				return

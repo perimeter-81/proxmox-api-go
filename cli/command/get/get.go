@@ -1,6 +1,8 @@
 package get
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -27,16 +29,16 @@ func getConfig(args []string, IDtype string) (err error) {
 	case "MetricServer":
 		config, err = proxmox.NewConfigMetricsFromApi(id, c)
 	case "Pool":
-		config, err = c.GetPoolInfo(id)
+		config, err = c.GetPoolInfo(context.Background(), id)
 	case "Storage":
-		config, err = proxmox.NewConfigStorageFromApi(id, c)
+		config, err = proxmox.NewConfigStorageFromApi(context.Background(), id, c)
 	case "User":
 		var userId proxmox.UserID
 		userId, err = proxmox.NewUserID(id)
 		if err != nil {
 			return
 		}
-		config, err = proxmox.NewConfigUserFromApi(userId, c)
+		config, err = proxmox.NewConfigUserFromApi(context.Background(), userId, c)
 	}
 	if err != nil {
 		return

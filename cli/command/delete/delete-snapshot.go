@@ -1,6 +1,8 @@
 package delete
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -14,7 +16,7 @@ var (
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			id := cli.ValidateIntIDset(args, "GuestID")
 			snapName := cli.RequiredIDset(args, 1, "SnapshotName")
-			_, err = proxmox.DeleteSnapshot(cli.NewClient(), proxmox.NewVmRef(id), snapName)
+			_, err = proxmox.DeleteSnapshot(context.Background(), cli.NewClient(), proxmox.NewVmRef(id), snapName)
 			if err != nil {
 				return
 			}

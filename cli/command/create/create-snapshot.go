@@ -1,6 +1,8 @@
 package create
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -23,7 +25,7 @@ var (
 				VmState:     memory,
 			}
 			memory = false
-			err = config.CreateSnapshot(cli.NewClient(), uint(id))
+			err = config.CreateSnapshot(context.Background(), cli.NewClient(), uint(id))
 			if err != nil {
 				return
 			}

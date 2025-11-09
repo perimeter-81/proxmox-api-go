@@ -1,6 +1,7 @@
 package proxmox
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ type ConfigAcmeAccount struct {
 }
 
 func (config ConfigAcmeAccount) CreateAcmeAccount(acmeId string, client *Client) (err error) {
+	ctx := context.Background()
 	params := map[string]interface{}{
 		"name":    acmeId,
 		"contact": ArrayToCSV(config.Contact),
@@ -25,14 +27,14 @@ func (config ConfigAcmeAccount) CreateAcmeAccount(acmeId string, client *Client)
 		return errors.New("error creating Acme account: the terms of service must be accepted")
 	}
 
-	acmeDirectories, err := client.GetAcmeDirectoriesUrl()
+	acmeDirectories, err := client.GetAcmeDirectoriesUrl(ctx)
 	if err != nil {
 		return err
 	}
 
 	var tos string
 	if inArray(acmeDirectories, config.Directory) {
-		tos, err = client.GetAcmeTosUrl()
+		tos, err = client.GetAcmeTosUrl(ctx)
 		if err != nil {
 			return err
 		}
@@ -42,7 +44,7 @@ func (config ConfigAcmeAccount) CreateAcmeAccount(acmeId string, client *Client)
 	params["tos_url"] = tos
 	params["directory"] = config.Directory
 
-	exitStatus, err := client.CreateAcmeAccount(params)
+	exitStatus, err := client.CreateAcmeAccount(ctx, params)
 	if err != nil {
 		params, _ := json.Marshal(&params)
 		return fmt.Errorf("error creating Acme profile: %v, error status: %s (params: %v)", err, exitStatus, string(params))
@@ -51,9 +53,10 @@ func (config ConfigAcmeAccount) CreateAcmeAccount(acmeId string, client *Client)
 }
 
 func NewConfigAcmeAccountFromApi(id string, client *Client) (config *ConfigAcmeAccount, err error) {
+	ctx := context.Background()
 	// prepare json map to receive the information from the api
 	var acmeConfig map[string]interface{}
-	acmeConfig, err = client.GetAcmeAccountConfig(id)
+	acmeConfig, err = client.GetAcmeAccountConfig(ctx, id)
 	if err != nil {
 		return nil, err
 	}

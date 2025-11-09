@@ -1,6 +1,7 @@
 package proxmox
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,15 +18,16 @@ type ConfigGroup struct {
 
 // Creates the specified group
 func (config *ConfigGroup) Create(client *Client) error {
+	ctx := context.Background()
 	config.Validate(true)
 	params := config.mapToApiValues(true)
-	err := client.Post(params, "/access/groups")
+	err := client.Post(ctx, params, "/access/groups")
 	if err != nil {
 		params, _ := json.Marshal(&params)
 		return fmt.Errorf("error creating Group: %v, (params: %v)", err, string(params))
 	}
 	if config.Members != nil {
-		return config.Name.SetMembers(config.Members, client)
+		return config.Name.SetMembers(ctx, config.Members, client)
 	}
 	return nil
 }
@@ -80,15 +82,16 @@ func (config *ConfigGroup) Set(client *Client) (err error) {
 
 // Updates the specified group
 func (config *ConfigGroup) Update(client *Client) error {
+	ctx := context.Background()
 	config.Validate(false)
 	params := config.mapToApiValues(true)
-	err := client.Put(params, "/access/groups/"+string(config.Name))
+	err := client.Put(ctx, params, "/access/groups/"+string(config.Name))
 	if err != nil {
 		params, _ := json.Marshal(&params)
 		return fmt.Errorf("error updating Group: %v, (params: %v)", err, string(params))
 	}
 	if config.Members != nil {
-		return config.Name.SetMembers(config.Members, client)
+		return config.Name.SetMembers(ctx, config.Members, client)
 	}
 	return nil
 }
@@ -117,12 +120,12 @@ func (config *ConfigGroup) Validate(create bool) (err error) {
 type GroupName string
 
 // Add users to the specified group
-func (group GroupName) AddUsersToGroup(members *[]UserID, client *Client) error {
-	users, err := listUsersFull(client)
+func (group GroupName) AddUsersToGroup(ctx context.Context, members *[]UserID, client *Client) error {
+	users, err := listUsersFull(ctx, client)
 	if err != nil {
 		return err
 	}
-	return configUserShort{}.updateUsersMembership(group.usersToAddToGroup(users, members), client)
+	return configUserShort{}.updateUsersMembership(ctx, group.usersToAddToGroup(users, members), client)
 }
 
 // Convert a array of GroupName to a comma separated string
@@ -173,11 +176,12 @@ func (GroupName) csvToArray(csv string) []GroupName {
 
 // Deletes the specified group
 func (group GroupName) Delete(client *Client) (err error) {
+	ctx := context.Background()
 	err = group.Validate()
 	if err != nil {
 		return
 	}
-	return client.Delete("/access/groups/" + string(group))
+	return client.Delete(ctx, "/access/groups/" + string(group))
 }
 
 func (group GroupName) inArray(groups []GroupName) bool {
@@ -214,12 +218,12 @@ func (GroupName) mapToArray(params any) *[]GroupName {
 }
 
 // Recursively remove all users from the specified group
-func (group GroupName) RemoveAllUsersFromGroup(client *Client) (err error) {
-	users, err := listUsersFull(client)
+func (group GroupName) RemoveAllUsersFromGroup(ctx context.Context, client *Client) (err error) {
+	users, err := listUsersFull(ctx, client)
 	if err != nil {
 		return
 	}
-	return configUserShort{}.updateUsersMembership(group.removeAllUsersFromGroup(users), client)
+	return configUserShort{}.updateUsersMembership(ctx, group.removeAllUsersFromGroup(users), client)
 }
 
 // Generate a array of users with their updated group memberships.
@@ -292,25 +296,25 @@ func (group GroupName) removeFromArray(groups []GroupName) []GroupName {
 }
 
 // Remove users from the specified group
-func (group GroupName) RemoveUsersFromGroup(members *[]UserID, client *Client) (err error) {
-	users, err := listUsersFull(client)
+func (group GroupName) RemoveUsersFromGroup(ctx context.Context, members *[]UserID, client *Client) (err error) {
+	users, err := listUsersFull(ctx, client)
 	if err != nil {
 		return err
 	}
-	return configUserShort{}.updateUsersMembership(group.usersToRemoveFromGroup(users, members), client)
+	return configUserShort{}.updateUsersMembership(ctx, group.usersToRemoveFromGroup(users, members), client)
 }
 
 // Recursively add and remove users from the specified group so only the the specified users will be members of the group
-func (group GroupName) SetMembers(members *[]UserID, client *Client) (err error) {
-	users, err := listUsersFull(client)
+func (group GroupName) SetMembers(ctx context.Context, members *[]UserID, client *Client) (err error) {
+	users, err := listUsersFull(ctx, client)
 	if err != nil {
 		return
 	}
-	err = configUserShort{}.updateUsersMembership(group.removeAllUsersFromGroupExcept(users, members), client)
+	err = configUserShort{}.updateUsersMembership(ctx, group.removeAllUsersFromGroupExcept(users, members), client)
 	if err != nil {
 		return
 	}
-	return configUserShort{}.updateUsersMembership(group.usersToAddToGroup(users, members), client)
+	return configUserShort{}.updateUsersMembership(ctx, group.usersToAddToGroup(users, members), client)
 }
 
 func (group GroupName) usersToAddToGroup(allUsers []interface{}, members *[]UserID) *[]configUserShort {
@@ -396,15 +400,17 @@ func ListGroups(client *Client) (*[]ConfigGroup, error) {
 
 // list all groups directly from the api without any extra formatting
 func listGroups(client *Client) ([]interface{}, error) {
-	return client.GetItemListInterfaceArray("/access/groups")
+	ctx := context.Background()
+	return client.GetItemListInterfaceArray(ctx, "/access/groups")
 }
 
 func NewConfigGroupFromApi(groupId GroupName, client *Client) (*ConfigGroup, error) {
+	ctx := context.Background()
 	err := groupId.Validate()
 	if err != nil {
 		return nil, err
 	}
-	config, err := client.GetItemConfigMapStringInterface("/access/groups/"+string(groupId), "group", "CONFIG")
+	config, err := client.GetItemConfigMapStringInterface(ctx, "/access/groups/"+string(groupId), "group", "CONFIG")
 	if err != nil {
 		return nil, err
 	}

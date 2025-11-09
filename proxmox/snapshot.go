@@ -1,6 +1,7 @@
 package proxmox
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -20,14 +21,17 @@ func (config *ConfigSnapshot) mapToApiValues() map[string]interface{} {
 	}
 }
 
-func (config *ConfigSnapshot) CreateSnapshot(c *Client, guestId uint) (err error) {
+func (config *ConfigSnapshot) CreateSnapshot(ctx context.Context, c *Client, guestId uint) (err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	params := config.mapToApiValues()
 	vmr := NewVmRef(int(guestId))
-	_, err = c.GetVmInfo(vmr)
+	_, err = c.GetVmInfo(ctx, vmr)
 	if err != nil {
 		return
 	}
-	_, err = c.PostWithTask(params, "/nodes/"+vmr.node+"/"+vmr.vmType+"/"+strconv.Itoa(vmr.vmId)+"/snapshot/")
+	_, err = c.PostWithTask(ctx, params, "/nodes/"+vmr.node+"/"+vmr.vmType+"/"+strconv.Itoa(vmr.vmId)+"/snapshot/")
 	if err != nil {
 		params, _ := json.Marshal(&params)
 		return fmt.Errorf("error creating Snapshot: %v, (params: %v)", err, string(params))
@@ -35,37 +39,49 @@ func (config *ConfigSnapshot) CreateSnapshot(c *Client, guestId uint) (err error
 	return
 }
 
-func ListSnapshots(c *Client, vmr *VmRef) (taskResponse []interface{}, err error) {
-	err = c.CheckVmRef(vmr)
+func ListSnapshots(ctx context.Context, c *Client, vmr *VmRef) (taskResponse []interface{}, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	err = c.CheckVmRef(ctx, vmr)
 	if err != nil {
 		return
 	}
-	return c.GetItemConfigInterfaceArray("/nodes/"+vmr.node+"/"+vmr.vmType+"/"+strconv.Itoa(vmr.vmId)+"/snapshot/", "Guest", "SNAPSHOTS")
+	return c.GetItemConfigInterfaceArray(ctx, "/nodes/"+vmr.node+"/"+vmr.vmType+"/"+strconv.Itoa(vmr.vmId)+"/snapshot/", "Guest", "SNAPSHOTS")
 }
 
 // Can only be used to update the description of an already existing snapshot
-func UpdateSnapshotDescription(c *Client, vmr *VmRef, snapshot, description string) (err error) {
-	err = c.CheckVmRef(vmr)
+func UpdateSnapshotDescription(ctx context.Context, c *Client, vmr *VmRef, snapshot, description string) (err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	err = c.CheckVmRef(ctx, vmr)
 	if err != nil {
 		return
 	}
-	return c.Put(map[string]interface{}{"description": description}, "/nodes/"+vmr.node+"/"+vmr.vmType+"/"+strconv.Itoa(vmr.vmId)+"/snapshot/"+snapshot+"/config")
+	return c.Put(ctx, map[string]interface{}{"description": description}, "/nodes/"+vmr.node+"/"+vmr.vmType+"/"+strconv.Itoa(vmr.vmId)+"/snapshot/"+snapshot+"/config")
 }
 
-func DeleteSnapshot(c *Client, vmr *VmRef, snapshot string) (exitStatus string, err error) {
-	err = c.CheckVmRef(vmr)
+func DeleteSnapshot(ctx context.Context, c *Client, vmr *VmRef, snapshot string) (exitStatus string, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	err = c.CheckVmRef(ctx, vmr)
 	if err != nil {
 		return
 	}
-	return c.DeleteWithTask("/nodes/" + vmr.node + "/" + vmr.vmType + "/" + strconv.Itoa(vmr.vmId) + "/snapshot/" + snapshot)
+	return c.DeleteWithTask(ctx, "/nodes/" + vmr.node + "/" + vmr.vmType + "/" + strconv.Itoa(vmr.vmId) + "/snapshot/" + snapshot)
 }
 
-func RollbackSnapshot(c *Client, vmr *VmRef, snapshot string) (exitStatus string, err error) {
-	err = c.CheckVmRef(vmr)
+func RollbackSnapshot(ctx context.Context, c *Client, vmr *VmRef, snapshot string) (exitStatus string, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	err = c.CheckVmRef(ctx, vmr)
 	if err != nil {
 		return
 	}
-	return c.PostWithTask(nil, "/nodes/"+vmr.node+"/"+vmr.vmType+"/"+strconv.Itoa(vmr.vmId)+"/snapshot/"+snapshot+"/rollback")
+	return c.PostWithTask(ctx, nil, "/nodes/"+vmr.node+"/"+vmr.vmType+"/"+strconv.Itoa(vmr.vmId)+"/snapshot/"+snapshot+"/rollback")
 }
 
 // Used for formatting the output when retrieving snapshots

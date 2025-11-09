@@ -1,6 +1,7 @@
 package proxmox
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -85,9 +86,10 @@ func NewConfigLxcFromJson(input []byte) (config ConfigLxc, err error) {
 }
 
 func NewConfigLxcFromApi(vmr *VmRef, client *Client) (config *ConfigLxc, err error) {
+	ctx := context.Background()
 	// prepare json map to receive the information from the api
 	var lxcConfig map[string]interface{}
-	lxcConfig, err = client.GetVmConfig(vmr)
+	lxcConfig, err = client.GetVmConfig(ctx, vmr)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +320,7 @@ func NewConfigLxcFromApi(vmr *VmRef, client *Client) (config *ConfigLxc, err err
 	config.Unused = unused
 	config.Tags = tags
 
-	err = client.ReadVMHA(vmr)
+	err = client.ReadVMHA(ctx, vmr)
 	if err == nil {
 		config.HaState = vmr.HaState()
 		config.HaGroup = vmr.HaGroup()
@@ -332,19 +334,20 @@ func NewConfigLxcFromApi(vmr *VmRef, client *Client) (config *ConfigLxc, err err
 
 // create LXC container using the Proxmox API
 func (config ConfigLxc) CreateLxc(vmr *VmRef, client *Client) (err error) {
+	ctx := context.Background()
 	vmr.SetVmType("lxc")
 	paramMap := config.mapToApiValues()
 
 	// amend vmid
 	paramMap["vmid"] = vmr.vmId
 
-	exitStatus, err := client.CreateLxcContainer(vmr.node, paramMap)
+	exitStatus, err := client.CreateLxcContainer(ctx, vmr.node, paramMap)
 	if err != nil {
 		params, _ := json.Marshal(&paramMap)
 		return fmt.Errorf("error creating LXC container: %v, error status: %s (params: %v)", err, exitStatus, string(params))
 	}
 
-	_, err = client.UpdateVMHA(vmr, config.HaState, config.HaGroup)
+	_, err = client.UpdateVMHA(ctx, vmr, config.HaState, config.HaGroup)
 	if err != nil {
 		return fmt.Errorf("[ERROR] %q", err)
 	}
@@ -353,6 +356,7 @@ func (config ConfigLxc) CreateLxc(vmr *VmRef, client *Client) (err error) {
 }
 
 func (config ConfigLxc) CloneLxc(vmr *VmRef, client *Client) (err error) {
+	ctx := context.Background()
 	vmr.SetVmType("lxc")
 
 	//map the clone specific parameters
@@ -388,13 +392,13 @@ func (config ConfigLxc) CloneLxc(vmr *VmRef, client *Client) (err error) {
 		paramMap["snapname"] = config.Snapname
 	}
 
-	exitStatus, err := client.CloneLxcContainer(vmr, paramMap)
+	exitStatus, err := client.CloneLxcContainer(ctx, vmr, paramMap)
 	if err != nil {
 		params, _ := json.Marshal(&paramMap)
 		return fmt.Errorf("error cloning LXC container: %v, error status: %s (params: %v)", err, exitStatus, string(params))
 	}
 
-	_, err = client.UpdateVMHA(vmr, config.HaState, config.HaGroup)
+	_, err = client.UpdateVMHA(ctx, vmr, config.HaState, config.HaGroup)
 	if err != nil {
 		return fmt.Errorf("[ERROR] %q", err)
 	}
@@ -403,6 +407,7 @@ func (config ConfigLxc) CloneLxc(vmr *VmRef, client *Client) (err error) {
 }
 
 func (config ConfigLxc) UpdateConfig(vmr *VmRef, client *Client) (err error) {
+	ctx := context.Background()
 	paramMap := config.mapToApiValues()
 
 	// delete parameters which are not supported in updated operations
@@ -419,12 +424,12 @@ func (config ConfigLxc) UpdateConfig(vmr *VmRef, client *Client) (err error) {
 	// also, error "500 unable to modify read-only option: 'unprivileged'"
 	delete(paramMap, "unprivileged")
 
-	_, err = client.UpdateVMHA(vmr, config.HaState, config.HaGroup)
+	_, err = client.UpdateVMHA(ctx, vmr, config.HaState, config.HaGroup)
 	if err != nil {
 		return err
 	}
 
-	_, err = client.SetLxcConfig(vmr, paramMap)
+	_, err = client.SetLxcConfig(ctx, vmr, paramMap)
 	return err
 }
 

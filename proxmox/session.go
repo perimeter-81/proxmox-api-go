@@ -4,6 +4,7 @@ package proxmox
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -192,6 +193,7 @@ func (s *Session) SetAPIToken(userID, token string) {
 }
 
 func (s *Session) Login(username string, password string, otp string) (err error) {
+	ctx := context.Background()
 	reqUser := map[string]interface{}{"username": username, "password": password}
 	if otp != "" {
 		reqUser["otp"] = otp
@@ -199,7 +201,7 @@ func (s *Session) Login(username string, password string, otp string) (err error
 	reqbody := ParamsToBody(reqUser)
 	olddebug := *Debug
 	*Debug = false // don't share passwords in debug log
-	resp, err := s.Post("/access/ticket", nil, &s.Headers, &reqbody)
+	resp, err := s.Post(ctx, "/access/ticket", nil, &s.Headers, &reqbody)
 	*Debug = olddebug
 	if err != nil {
 		return err
@@ -225,8 +227,11 @@ func (s *Session) Login(username string, password string, otp string) (err error
 	return nil
 }
 
-func (s *Session) NewRequest(method, url string, headers *http.Header, body io.Reader) (req *http.Request, err error) {
-	req, err = http.NewRequest(method, url, body)
+func (s *Session) NewRequest(ctx context.Context, method, url string, headers *http.Header, body io.Reader) (req *http.Request, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	req, err = http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -283,12 +288,16 @@ func (s *Session) Do(req *http.Request) (*http.Response, error) {
 
 // Perform a simple get to an endpoint
 func (s *Session) Request(
+	ctx context.Context,
 	method string,
 	url string,
 	params *url.Values,
 	headers *http.Header,
 	body *[]byte,
 ) (resp *http.Response, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	// add params to url here
 	url = s.ApiUrl + url
 	if params != nil {
@@ -301,7 +310,7 @@ func (s *Session) Request(
 		buf = bytes.NewReader(*body)
 	}
 
-	req, err := s.NewRequest(method, url, headers, buf)
+	req, err := s.NewRequest(ctx, method, url, headers, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -313,6 +322,7 @@ func (s *Session) Request(
 
 // Perform a simple get to an endpoint and unmarshal returned JSON
 func (s *Session) RequestJSON(
+	ctx context.Context,
 	method string,
 	url string,
 	params *url.Values,
@@ -320,6 +330,9 @@ func (s *Session) RequestJSON(
 	body interface{},
 	responseContainer interface{},
 ) (resp *http.Response, err error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var bodyjson []byte
 	if body != nil {
 		bodyjson, err = json.Marshal(body)
@@ -333,7 +346,7 @@ func (s *Session) RequestJSON(
 	// 	headers.Add("Content-Type", "application/json")
 	// }
 
-	resp, err = s.Request(method, url, params, headers, &bodyjson)
+	resp, err = s.Request(ctx, method, url, params, headers, &bodyjson)
 	if err != nil {
 		return resp, err
 	}
@@ -355,39 +368,44 @@ func (s *Session) RequestJSON(
 }
 
 func (s *Session) Delete(
+	ctx context.Context,
 	url string,
 	params *url.Values,
 	headers *http.Header,
 ) (resp *http.Response, err error) {
-	return s.Request("DELETE", url, params, headers, nil)
+	return s.Request(ctx, "DELETE", url, params, headers, nil)
 }
 
 func (s *Session) Get(
+	ctx context.Context,
 	url string,
 	params *url.Values,
 	headers *http.Header,
 ) (resp *http.Response, err error) {
-	return s.Request("GET", url, params, headers, nil)
+	return s.Request(ctx, "GET", url, params, headers, nil)
 }
 
 func (s *Session) GetJSON(
+	ctx context.Context,
 	url string,
 	params *url.Values,
 	headers *http.Header,
 	responseContainer interface{},
 ) (resp *http.Response, err error) {
-	return s.RequestJSON("GET", url, params, headers, nil, responseContainer)
+	return s.RequestJSON(ctx, "GET", url, params, headers, nil, responseContainer)
 }
 
 func (s *Session) Head(
+	ctx context.Context,
 	url string,
 	params *url.Values,
 	headers *http.Header,
 ) (resp *http.Response, err error) {
-	return s.Request("HEAD", url, params, headers, nil)
+	return s.Request(ctx, "HEAD", url, params, headers, nil)
 }
 
 func (s *Session) Post(
+	ctx context.Context,
 	url string,
 	params *url.Values,
 	headers *http.Header,
@@ -397,20 +415,22 @@ func (s *Session) Post(
 		headers = &http.Header{}
 		headers.Add("Content-Type", "application/x-www-form-urlencoded")
 	}
-	return s.Request("POST", url, params, headers, body)
+	return s.Request(ctx, "POST", url, params, headers, body)
 }
 
 func (s *Session) PostJSON(
+	ctx context.Context,
 	url string,
 	params *url.Values,
 	headers *http.Header,
 	body interface{},
 	responseContainer interface{},
 ) (resp *http.Response, err error) {
-	return s.RequestJSON("POST", url, params, headers, body, responseContainer)
+	return s.RequestJSON(ctx, "POST", url, params, headers, body, responseContainer)
 }
 
 func (s *Session) Put(
+	ctx context.Context,
 	url string,
 	params *url.Values,
 	headers *http.Header,
@@ -420,5 +440,5 @@ func (s *Session) Put(
 		headers = &http.Header{}
 		headers.Add("Content-Type", "application/x-www-form-urlencoded")
 	}
-	return s.Request("PUT", url, params, headers, body)
+	return s.Request(ctx, "PUT", url, params, headers, body)
 }

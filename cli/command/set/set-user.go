@@ -1,6 +1,8 @@
 package set
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -29,7 +31,7 @@ For config examples see "example user"`,
 			password = proxmox.UserPassword(args[1])
 		}
 		c := cli.NewClient()
-		err = config.SetUser(userId, password, c)
+		err = config.SetUser(context.Background(), userId, password, c)
 		if err != nil {
 			return
 		}

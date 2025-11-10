@@ -2,6 +2,7 @@ package proxmox
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -87,7 +88,7 @@ type ConfigQemu struct {
 }
 
 // CreateVm - Tell Proxmox API to make the VM
-func (config ConfigQemu) CreateVm(vmr *VmRef, client *Client) (err error) {
+func (config ConfigQemu) CreateVm(ctx context.Context, vmr *VmRef, client *Client) (err error) {
 	if config.HasCloudInit() {
 		return fmt.Errorf("cloud-init parameters only supported on clones or updates")
 	}
@@ -210,12 +211,12 @@ func (config ConfigQemu) CreateVm(vmr *VmRef, client *Client) (err error) {
 		log.Printf("[ERROR] %q", err)
 	}
 
-	exitStatus, err := client.CreateQemuVm(vmr.node, params)
+	exitStatus, err := client.CreateQemuVm(ctx, vmr.node, params)
 	if err != nil {
 		return fmt.Errorf("error creating VM: %v, error status: %s (params: %v)", err, exitStatus, params)
 	}
 
-	_, err = client.UpdateVMHA(vmr, config.HaState, config.HaGroup)
+	_, err = client.UpdateVMHA(ctx, vmr, config.HaState, config.HaGroup)
 	if err != nil {
 		log.Printf("[ERROR] %q", err)
 	}
@@ -250,7 +251,7 @@ target:proxmox1-xx
 full:1
 storage:xxx
 */
-func (config ConfigQemu) CloneVm(sourceVmr *VmRef, vmr *VmRef, client *Client) (err error) {
+func (config ConfigQemu) CloneVm(ctx context.Context, sourceVmr *VmRef, vmr *VmRef, client *Client) (err error) {
 	vmr.SetVmType("qemu")
 	var storage string
 	fullclone := "1"
@@ -274,11 +275,11 @@ func (config ConfigQemu) CloneVm(sourceVmr *VmRef, vmr *VmRef, client *Client) (
 		params["storage"] = storage
 	}
 
-	_, err = client.CloneQemuVm(sourceVmr, params)
+	_, err = client.CloneQemuVm(ctx, sourceVmr, params)
 	return err
 }
 
-func (config ConfigQemu) UpdateConfig(vmr *VmRef, client *Client) (err error) {
+func (config ConfigQemu) UpdateConfig(ctx context.Context, vmr *VmRef, client *Client) (err error) {
 	configParams := map[string]interface{}{}
 
 	//Array to list deleted parameters
@@ -392,7 +393,7 @@ func (config ConfigQemu) UpdateConfig(vmr *VmRef, client *Client) (err error) {
 		log.Printf("[ERROR] %q", err)
 	}
 	// TODO keep going if error=
-	_, err = client.createVMDisks(vmr.node, configParamsDisk)
+	_, err = client.createVMDisks(ctx, vmr.node, configParamsDisk)
 	if err != nil {
 		log.Printf("[ERROR] %q", err)
 	}
@@ -460,18 +461,18 @@ func (config ConfigQemu) UpdateConfig(vmr *VmRef, client *Client) (err error) {
 	// 	configParams["delete"] = strings.Join(deleteParams, ", ")
 	// }
 
-	_, err = client.SetVmConfig(vmr, configParams)
+	_, err = client.SetVmConfig(ctx, vmr, configParams)
 	if err != nil {
 		log.Print(err)
 		return err
 	}
 
-	_, err = client.UpdateVMHA(vmr, config.HaState, config.HaGroup)
+	_, err = client.UpdateVMHA(ctx, vmr, config.HaState, config.HaGroup)
 	if err != nil {
 		log.Printf("[ERROR] %q", err)
 	}
 
-	_, err = client.UpdateVMPool(vmr, config.Pool)
+	_, err = client.UpdateVMPool(ctx, vmr, config.Pool)
 
 	return err
 }
@@ -500,10 +501,10 @@ var (
 	rxIpconfigName   = regexp.MustCompile(`ipconfig\d+`)
 )
 
-func NewConfigQemuFromApi(vmr *VmRef, client *Client) (config *ConfigQemu, err error) {
+func NewConfigQemuFromApi(ctx context.Context, vmr *VmRef, client *Client) (config *ConfigQemu, err error) {
 	var vmConfig map[string]interface{}
 	for ii := 0; ii < 3; ii++ {
-		vmConfig, err = client.GetVmConfig(vmr)
+		vmConfig, err = client.GetVmConfig(ctx, vmr)
 		if err != nil {
 			log.Fatal(err)
 			return nil, err
@@ -751,7 +752,7 @@ func NewConfigQemuFromApi(vmr *VmRef, client *Client) (config *ConfigQemu, err e
 		filePath := diskConfMap["volume"]
 
 		// Get disk format
-		storageContent, err := client.GetStorageContent(vmr, storageName)
+		storageContent, err := client.GetStorageContent(ctx, vmr, storageName)
 		if err != nil {
 			log.Fatal(err)
 			return nil, err
@@ -770,7 +771,7 @@ func NewConfigQemuFromApi(vmr *VmRef, client *Client) (config *ConfigQemu, err e
 		// Get storage type for disk
 		var storageStatus map[string]interface{}
 		if !isDiskByID {
-			storageStatus, err = client.GetStorageStatus(vmr, storageName)
+			storageStatus, err = client.GetStorageStatus(ctx, vmr, storageName)
 			if err != nil {
 				log.Fatal(err)
 				return nil, err
@@ -983,7 +984,7 @@ func NewConfigQemuFromApi(vmr *VmRef, client *Client) (config *ConfigQemu, err e
 	}
 
 	// hastate is return by the api for a vm resource type but not the hagroup
-	err = client.ReadVMHA(vmr)
+	err = client.ReadVMHA(ctx, vmr)
 	if err == nil {
 		config.HaState = vmr.HaState()
 		config.HaGroup = vmr.HaGroup()
@@ -996,9 +997,9 @@ func NewConfigQemuFromApi(vmr *VmRef, client *Client) (config *ConfigQemu, err e
 }
 
 // Useful waiting for ISO install to complete
-func WaitForShutdown(vmr *VmRef, client *Client) (err error) {
+func WaitForShutdown(ctx context.Context, vmr *VmRef, client *Client) (err error) {
 	for ii := 0; ii < 100; ii++ {
-		vmState, err := client.GetVmState(vmr)
+		vmState, err := client.GetVmState(ctx, vmr)
 		if err != nil {
 			log.Print("Wait error:")
 			log.Println(err)
@@ -1011,8 +1012,8 @@ func WaitForShutdown(vmr *VmRef, client *Client) (err error) {
 }
 
 // This is because proxmox create/config API won't let us make usernet devices
-func SshForwardUsernet(vmr *VmRef, client *Client) (sshPort string, err error) {
-	vmState, err := client.GetVmState(vmr)
+func SshForwardUsernet(ctx context.Context, vmr *VmRef, client *Client) (sshPort string, err error) {
+	vmState, err := client.GetVmState(ctx, vmr)
 	if err != nil {
 		return "", err
 	}
@@ -1020,11 +1021,11 @@ func SshForwardUsernet(vmr *VmRef, client *Client) (sshPort string, err error) {
 		return "", fmt.Errorf("VM must be running first")
 	}
 	sshPort = strconv.Itoa(vmr.VmId() + 22000)
-	_, err = client.MonitorCmd(vmr, "netdev_add user,id=net1,hostfwd=tcp::"+sshPort+"-:22")
+	_, err = client.MonitorCmd(ctx, vmr, "netdev_add user,id=net1,hostfwd=tcp::"+sshPort+"-:22")
 	if err != nil {
 		return "", err
 	}
-	_, err = client.MonitorCmd(vmr, "device_add virtio-net-pci,id=net1,netdev=net1,addr=0x13")
+	_, err = client.MonitorCmd(ctx, vmr, "device_add virtio-net-pci,id=net1,netdev=net1,addr=0x13")
 	if err != nil {
 		return "", err
 	}
@@ -1043,27 +1044,27 @@ func sshKeyUrlEncode(keys string) (encodedKeys string) {
 
 // device_del net1
 // netdev_del net1
-func RemoveSshForwardUsernet(vmr *VmRef, client *Client) (err error) {
-	vmState, err := client.GetVmState(vmr)
+func RemoveSshForwardUsernet(ctx context.Context, vmr *VmRef, client *Client) (err error) {
+	vmState, err := client.GetVmState(ctx, vmr)
 	if err != nil {
 		return err
 	}
 	if vmState["status"] == "stopped" {
 		return fmt.Errorf("VM must be running first")
 	}
-	_, err = client.MonitorCmd(vmr, "device_del net1")
+	_, err = client.MonitorCmd(ctx, vmr, "device_del net1")
 	if err != nil {
 		return err
 	}
-	_, err = client.MonitorCmd(vmr, "netdev_del net1")
+	_, err = client.MonitorCmd(ctx, vmr, "netdev_del net1")
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func MaxVmId(client *Client) (max int, err error) {
-	resp, err := client.GetVmList()
+func MaxVmId(ctx context.Context, client *Client) (max int, err error) {
+	resp, err := client.GetVmList(ctx)
 	vms := resp["data"].([]interface{})
 	max = 100
 	for vmii := range vms {
@@ -1076,8 +1077,8 @@ func MaxVmId(client *Client) (max int, err error) {
 	return
 }
 
-func SendKeysString(vmr *VmRef, client *Client, keys string) (err error) {
-	vmState, err := client.GetVmState(vmr)
+func SendKeysString(ctx context.Context, vmr *VmRef, client *Client, keys string) (err error) {
+	vmState, err := client.GetVmState(ctx, vmr)
 	if err != nil {
 		return err
 	}
@@ -1133,7 +1134,7 @@ func SendKeysString(vmr *VmRef, client *Client, keys string) (err error) {
 				c = "shift-slash"
 			}
 		}
-		_, err = client.MonitorCmd(vmr, "sendkey "+c)
+		_, err = client.MonitorCmd(ctx, vmr, "sendkey "+c)
 		if err != nil {
 			return err
 		}

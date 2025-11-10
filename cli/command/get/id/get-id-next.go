@@ -1,6 +1,7 @@
 package id
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/perimeter-81/proxmox-api-go/cli"
@@ -13,7 +14,7 @@ var id_nextCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		c := cli.NewClient()
-		id, err := c.GetNextID(0)
+		id, err := c.GetNextID(context.Background(), 0)
 		if err != nil {
 			return
 		}

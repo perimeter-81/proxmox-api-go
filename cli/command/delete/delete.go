@@ -1,6 +1,7 @@
 package delete
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/perimeter-81/proxmox-api-go/cli"
@@ -23,22 +24,22 @@ func deleteID(args []string, IDtype string) (err error) {
 	c := cli.NewClient()
 	switch IDtype {
 	case "AcmeAccount":
-		exitStatus, err = c.DeleteAcmeAccount(id)
+		exitStatus, err = c.DeleteAcmeAccount(context.Background(), id)
 	case "Group":
 		err = proxmox.GroupName(id).Delete(c)
 	case "MetricServer":
-		err = c.DeleteMetricServer(id)
+		err = c.DeleteMetricServer(context.Background(), id)
 	case "Pool":
-		err = c.DeletePool(id)
+		err = c.DeletePool(context.Background(), id)
 	case "Storage":
-		err = c.DeleteStorage(id)
+		err = c.DeleteStorage(context.Background(), id)
 	case "User":
 		var userId proxmox.UserID
 		userId, err = proxmox.NewUserID(id)
 		if err != nil {
 			return
 		}
-		err = proxmox.ConfigUser{User: userId}.DeleteUser(c)
+		err = proxmox.ConfigUser{User: userId}.DeleteUser(context.Background(), c)
 	}
 	if err != nil {
 		if exitStatus != "" {

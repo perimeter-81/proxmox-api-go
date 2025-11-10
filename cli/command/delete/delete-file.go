@@ -1,6 +1,8 @@
 package delete
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -16,7 +18,7 @@ var delete_fileCmd = &cobra.Command{
 		if Type.Validate() != nil {
 			return
 		}
-		err = proxmox.DeleteFile(c, args[0], proxmox.Content_File{
+		err = proxmox.DeleteFile(context.Background(), c, args[0], proxmox.Content_File{
 			Storage:     args[1],
 			ContentType: Type,
 			FilePath:    args[3],

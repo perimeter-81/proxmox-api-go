@@ -1,6 +1,7 @@
 package id
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/perimeter-81/proxmox-api-go/cli"
@@ -14,7 +15,7 @@ var id_maxCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		c := cli.NewClient()
-		id, err := proxmox.MaxVmId(c)
+		id, err := proxmox.MaxVmId(context.Background(), c)
 		if err != nil {
 			return
 		}

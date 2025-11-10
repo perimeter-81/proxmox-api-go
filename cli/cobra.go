@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -67,7 +68,7 @@ func Client(apiUrl, userID, password, otp string, http_headers string) (c *proxm
 	if userRequiresAPIToken(userID) {
 		c.SetAPIToken(userID, password)
 		// As test, get the version of the server
-		_, err = c.GetVersion()
+		_, err = c.GetVersion(context.Background())
 		if err != nil {
 			err = fmt.Errorf("login error: %s", err)
 		}

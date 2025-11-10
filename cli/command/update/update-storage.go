@@ -1,6 +1,8 @@
 package update
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -20,7 +22,7 @@ For config examples see "example storage"`,
 			return
 		}
 		c := cli.NewClient()
-		err = config.UpdateWithValidate(id, c)
+		err = config.UpdateWithValidate(context.Background(), id, c)
 		if err != nil {
 			return
 		}

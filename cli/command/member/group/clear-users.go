@@ -1,6 +1,8 @@
 package group
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -12,7 +14,7 @@ var group_clearCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		c := cli.NewClient()
-		err = proxmox.GroupName(args[0]).RemoveAllUsersFromGroup(c)
+		err = proxmox.GroupName(args[0]).RemoveAllUsersFromGroup(context.Background(), c)
 		if err != nil {
 			return
 		}

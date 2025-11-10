@@ -1,6 +1,8 @@
 package group
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -17,7 +19,7 @@ var group_addCmd = &cobra.Command{
 			return
 		}
 		c := cli.NewClient()
-		err = proxmox.GroupName(args[0]).AddUsersToGroup(users, c)
+		err = proxmox.GroupName(args[0]).AddUsersToGroup(context.Background(), users, c)
 		if err != nil {
 			return
 		}

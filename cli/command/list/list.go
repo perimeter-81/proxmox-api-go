@@ -1,6 +1,8 @@
 package list
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/spf13/cobra"
 )
@@ -18,21 +20,22 @@ func listRaw(IDtype string) {
 	c := cli.NewClient()
 	var list interface{}
 	var err error
+	ctx := context.Background()
 	switch IDtype {
 	case "AcmeAccounts":
-		list, err = c.GetAcmeAccountList()
+		list, err = c.GetAcmeAccountList(ctx)
 	case "AcmePlugins":
-		list, err = c.GetAcmePluginList()
+		list, err = c.GetAcmePluginList(ctx)
 	case "Guests":
-		list, err = c.GetVmList()
+		list, err = c.GetVmList(ctx)
 	case "MetricServers":
-		list, err = c.GetMetricsServerList()
+		list, err = c.GetMetricsServerList(ctx)
 	case "Nodes":
-		list, err = c.GetNodeList()
+		list, err = c.GetNodeList(ctx)
 	case "Pools":
-		list, err = c.GetPoolList()
+		list, err = c.GetPoolList(ctx)
 	case "Storages":
-		list, err = c.GetStorageList()
+		list, err = c.GetStorageList(ctx)
 	}
 	cli.LogFatalListing(IDtype, err)
 	cli.PrintRawJson(listCmd.OutOrStdout(), list)

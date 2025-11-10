@@ -1,6 +1,7 @@
 package proxmox
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -114,6 +115,7 @@ func (config *ConfigMetrics) ValidateMetrics() (err error) {
 }
 
 func (config *ConfigMetrics) SetMetrics(metricsId string, client *Client) (err error) {
+	ctx := context.Background()
 	err = config.ValidateMetrics()
 	if err != nil {
 		return
@@ -121,7 +123,7 @@ func (config *ConfigMetrics) SetMetrics(metricsId string, client *Client) (err e
 
 	config.Name = metricsId
 
-	metricsExists, err := client.CheckMetricServerExistence(metricsId)
+	metricsExists, err := client.CheckMetricServerExistence(ctx, metricsId)
 	if err != nil {
 		return err
 	}
@@ -135,9 +137,10 @@ func (config *ConfigMetrics) SetMetrics(metricsId string, client *Client) (err e
 }
 
 func (config *ConfigMetrics) CreateMetrics(client *Client) (err error) {
+	ctx := context.Background()
 	config.RemoveMetricsNestedStructs()
 	params := config.mapToApiValues(true)
-	err = client.CreateMetricServer(config.Name, params)
+	err = client.CreateMetricServer(ctx, config.Name, params)
 	if err != nil {
 		params, _ := json.Marshal(&params)
 		return fmt.Errorf("error creating Metrics Server: %v, (params: %v)", err, string(params))
@@ -146,9 +149,10 @@ func (config *ConfigMetrics) CreateMetrics(client *Client) (err error) {
 }
 
 func (config *ConfigMetrics) UpdateMetrics(client *Client) (err error) {
+	ctx := context.Background()
 	config.RemoveMetricsNestedStructs()
 	params := config.mapToApiValues(false)
-	err = client.UpdateMetricServer(config.Name, params)
+	err = client.UpdateMetricServer(ctx, config.Name, params)
 	if err != nil {
 		params, _ := json.Marshal(&params)
 		return fmt.Errorf("error updating Metrics Server: %v, (params: %v)", err, string(params))
@@ -178,9 +182,10 @@ func InstantiateConfigMetrics() *ConfigMetrics {
 }
 
 func NewConfigMetricsFromApi(metricsId string, client *Client) (config *ConfigMetrics, err error) {
+	ctx := context.Background()
 	// prepare json map to receive the information from the api
 	var rawConfig map[string]interface{}
-	rawConfig, err = client.GetMetricServerConfig(metricsId)
+	rawConfig, err = client.GetMetricServerConfig(ctx, metricsId)
 	if err != nil {
 		return nil, err
 	}

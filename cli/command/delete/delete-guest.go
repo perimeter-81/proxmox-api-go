@@ -1,6 +1,7 @@
 package delete
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/perimeter-81/proxmox-api-go/cli"
@@ -16,11 +17,11 @@ var delete_guestCmd = &cobra.Command{
 		id := cli.ValidateIntIDset(args, "GuestID")
 		vmr := proxmox.NewVmRef(id)
 		c := cli.NewClient()
-		_, err = c.StopVm(vmr)
+		_, err = c.StopVm(context.Background(), vmr)
 		if err != nil {
 			return
 		}
-		_, err = c.DeleteVm(vmr)
+		_, err = c.DeleteVm(context.Background(), vmr)
 		if err != nil {
 			return
 		}

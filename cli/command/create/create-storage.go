@@ -1,6 +1,8 @@
 package create
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/perimeter-81/proxmox-api-go/proxmox"
 	"github.com/spf13/cobra"
@@ -20,7 +22,7 @@ For config examples see "example storage"`,
 			return
 		}
 		c := cli.NewClient()
-		err = config.CreateWithValidate(id, c)
+		err = config.CreateWithValidate(context.Background(), id, c)
 		if err != nil {
 			return
 		}

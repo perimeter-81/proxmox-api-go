@@ -1,6 +1,8 @@
 package create
 
 import (
+	"context"
+
 	"github.com/perimeter-81/proxmox-api-go/cli"
 	"github.com/spf13/cobra"
 )
@@ -16,7 +18,7 @@ var create_poolCmd = &cobra.Command{
 			comment = args[1]
 		}
 		c := cli.NewClient()
-		err = c.CreatePool(id, comment)
+		err = c.CreatePool(context.Background(), id, comment)
 		if err != nil {
 			return
 		}

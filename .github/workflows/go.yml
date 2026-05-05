@@ -9,7 +9,7 @@ on:
 jobs:
 
   audit:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.ACTIONS_RUNNER }}
     steps:
     - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
 

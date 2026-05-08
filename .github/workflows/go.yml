@@ -11,6 +11,14 @@ jobs:
   audit:
     runs-on: ${{ vars.ACTIONS_RUNNER }}
     steps:
+
+      - name: Push metrics
+        if: always()
+        continue-on-error: true
+        uses: perimeter-81/actions/actions/monitoring/push_metrics@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
     - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
 
     - name: Set up Go
